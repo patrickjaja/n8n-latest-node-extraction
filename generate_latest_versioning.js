@@ -66,6 +66,13 @@ function extractNodeName(content) {
 	return null;
 }
 
+function hasUsableAsTool(content) {
+	// Detects if node has usableAsTool property in its description
+	// When present (as true or object), n8n creates a dynamic "*Tool" variant at runtime
+	// Formats: usableAsTool: true  OR  usableAsTool: { ... }
+	return /usableAsTool:\s*(true|\{)/.test(content);
+}
+
 function findAllTsFiles(dir) {
 	const results = [];
 	try {
@@ -180,6 +187,20 @@ function main() {
 		const version = extractVersion(filePath) || '1';
 		const packageName = pkg.includes('langchain') ? 'nodes-langchain' : 'nodes-base';
 
+		// Check if node can be used as a tool (also check related files in same directory)
+		let usableAsTool = hasUsableAsTool(content);
+		if (!usableAsTool) {
+			const nodeDir = path.dirname(filePath);
+			const tsFiles = findAllTsFiles(nodeDir).filter((f) => f !== filePath);
+			for (const tsFile of tsFiles) {
+				const tsContent = fs.readFileSync(tsFile, 'utf8');
+				if (hasUsableAsTool(tsContent)) {
+					usableAsTool = true;
+					break;
+				}
+			}
+		}
+
 		// Create unique key per node name + package
 		const key = `${nodeName}|${packageName}`;
 		const existing = nodeMap.get(key);
@@ -190,11 +211,33 @@ function main() {
 				node: nodeName,
 				version: version,
 				package: packageName,
+				usableAsTool: usableAsTool,
 			});
 		}
 	}
 
-	const results = Array.from(nodeMap.values());
+	// Build results array with tool variants
+	const results = [];
+
+	for (const entry of nodeMap.values()) {
+		// Add the base node entry
+		results.push({
+			node: entry.node,
+			version: entry.version,
+			package: entry.package,
+		});
+
+		// Add tool variant entry if usableAsTool is true
+		// Skip if node name already ends with "Tool" to avoid duplicates like "agentToolTool"
+		if (entry.usableAsTool && !entry.node.endsWith('Tool')) {
+			results.push({
+				node: entry.node + 'Tool',
+				version: entry.version,
+				package: entry.package,
+			});
+		}
+	}
+
 	results.sort((a, b) => a.node.localeCompare(b.node));
 	console.log(JSON.stringify(results, null, 2));
 }

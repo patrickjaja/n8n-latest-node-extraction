@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.0] - 2025-11-26
+
+### Added
+- Auto-generate tool variant entries (e.g., `httpRequestTool`) for nodes with `usableAsTool` property
+- Detection of both `usableAsTool: true` and `usableAsTool: { ... }` patterns
+
+### Removed
+- `TOOL_TO_BASE_NODE_MAP` workaround from `update-workflows.js` (no longer needed)
+
 ## [1.0.0] - 2025-11-26
 
 ### Added
