@@ -58,17 +58,30 @@ function loadVersions(jsonPath) {
 	return versionMap;
 }
 
+// Map tool node types to their base node types
+// When nodes have usableAsTool, n8n creates a "Tool" variant with a different type name
+const TOOL_TO_BASE_NODE_MAP = {
+	'httpRequestTool': 'httpRequest',
+	// Add more tool mappings as needed
+};
+
 // Extract node name and package from type string
 // e.g., "n8n-nodes-base.httpRequest" -> { name: "httpRequest", package: "nodes-base" }
 // e.g., "@n8n/n8n-nodes-langchain.agent" -> { name: "agent", package: "nodes-langchain" }
+// e.g., "n8n-nodes-base.httpRequestTool" -> { name: "httpRequest", package: "nodes-base" } (maps tool to base)
 function parseNodeType(type) {
 	if (!type) return null;
 
 	const parts = type.split('.');
 	if (parts.length < 2) return null;
 
-	const name = parts[parts.length - 1];
+	let name = parts[parts.length - 1];
 	const packagePart = parts.slice(0, -1).join('.');
+
+	// Map tool variants to their base node types
+	if (TOOL_TO_BASE_NODE_MAP[name]) {
+		name = TOOL_TO_BASE_NODE_MAP[name];
+	}
 
 	let packageName;
 	if (packagePart.includes('langchain')) {
