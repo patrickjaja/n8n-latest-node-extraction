@@ -195,6 +195,64 @@ function applyUpdates(workflow, changes) {
 	return workflow;
 }
 
+// Clean a node object to only include allowed properties
+function cleanNode(node) {
+	const allowedNodeProperties = [
+		'id',
+		'name',
+		'webhookId',
+		'disabled',
+		'notesInFlow',
+		'notes',
+		'type',
+		'typeVersion',
+		'executeOnce',
+		'alwaysOutputData',
+		'retryOnFail',
+		'maxTries',
+		'waitBetweenTries',
+		'continueOnFail',
+		'onError',
+		'position',
+		'parameters',
+		'credentials',
+	];
+
+	const cleaned = {};
+	for (const prop of allowedNodeProperties) {
+		if (node[prop] !== undefined) {
+			cleaned[prop] = node[prop];
+		}
+	}
+	return cleaned;
+}
+
+// Prepare workflow for PUT request (remove read-only properties)
+function prepareWorkflowForUpdate(workflow) {
+	// Only include properties that the API accepts for PUT
+	const allowedWorkflowProperties = [
+		'name',
+		'nodes',
+		'connections',
+		'settings',
+		'staticData',
+	];
+
+	const cleaned = {};
+	for (const prop of allowedWorkflowProperties) {
+		if (workflow[prop] !== undefined) {
+			if (prop === 'nodes' && Array.isArray(workflow[prop])) {
+				// Clean each node
+				cleaned[prop] = workflow[prop].map(cleanNode);
+			} else {
+				cleaned[prop] = workflow[prop];
+			}
+		}
+	}
+
+	return cleaned;
+}
+
 async function main() {
 	console.log(applyMode ? 'APPLY MODE - Changes will be saved' : 'DRY-RUN MODE (use --apply to make changes)\n');
 
@@ -243,10 +301,11 @@ async function main() {
 				console.log(`  Backup: ${backupPath}`);
 
 				// Apply updates
-				const updatedWorkflow = applyUpdates(workflow, changes);
+				applyUpdates(workflow, changes);
 
-				// Save to n8n
-				await updateWorkflow(workflow.id, updatedWorkflow);
+				// Prepare and save to n8n (strip read-only properties)
+				const workflowPayload = prepareWorkflowForUpdate(workflow);
+				await updateWorkflow(workflow.id, workflowPayload);
 				console.log(`  ✓ Updated successfully`);
 			}
 		} catch (err) {
